@@ -18,7 +18,7 @@
 
 <br />
 
-![isoAutomate Architecture](ext/sdk-python.png)
+<img src="ext/sdk-python.png" alt="isoAutomate Architecture" width="400" />
 
 ---
 
