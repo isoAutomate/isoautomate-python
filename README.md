@@ -12,7 +12,7 @@
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
   </a>
   <a href="https://isoautomate.com/docs">
-    <img src="https://img.shields.io/badge/Docs-isoautomate.com-orange.svg" alt="Documentation">
+    <img src="https://img.shields.io/badge/Docs-isoautomate.com-blue.svg" alt="Documentation">
   </a>
 </div>
 
