@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "isoautomate"
+version = "0.1.0"
+description = "Official Python SDK for the isoAutomate Sovereign Browser Infrastructure, providing connectivity to the isoFleet engine."
+readme = "README.md"
+requires-python = ">=3.7"
+license = {text = "MIT"}
+authors = [
+  {name = "isoAutomate Team", email = "support@isoautomate.com"}
+]
+dependencies = [
+    "redis>=4.0.0",
+    "python-dotenv>=0.19.0"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/isoautomate/isoautomate-python"
+"Bug Tracker" = "https://github.com/isoautomate/isoautomate-python/issues"
