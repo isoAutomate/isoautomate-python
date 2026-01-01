@@ -65,7 +65,7 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=yourpassword
 REDIS_DB=0
-REDIS_SSL=true
+REDIS_SSL=False
 ```
 
 ### Method 2: Direct Initialization
