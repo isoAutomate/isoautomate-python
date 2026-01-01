@@ -18,7 +18,9 @@
 
 <br />
 
-<img src="ext/sdk-python.png" alt="isoAutomate Architecture" width="400" />
+<div align="center">
+<img src="ext/sdk-python.png" alt="isoAutomate Architecture" width="450" />
+</div>
 
 ---
 
