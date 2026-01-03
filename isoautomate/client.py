@@ -102,11 +102,32 @@ class BrowserClient:
     
     # ---------------------------- Connection & Lifecycle ----------------------------
 
-    def acquire(self, browser_type="chrome", record=False):
+    def acquire(self, browser_type="chrome", record=False, profile=None):
         """
         Acquire a browser session. 
-        Set record=True to record a video of the session.
+        :param browser_type: The engine to use (e.g., chrome, chrome_profiled).
+        :param record: Set True to record the session video.
+        :param profile: String for custom persistence, or True for default project persistence.
         """
+        # --- PROFILE ID LOGIC ---
+        profile_id = None
+        if profile is True:
+            # Auto-manage a persistent ID for this local project folder
+            profile_store = os.path.join(os.getcwd(), ".iso_profiles")
+            if not os.path.exists(profile_store):
+                os.makedirs(profile_store)
+            
+            id_file = os.path.join(profile_store, "default_profile.id")
+            if os.path.exists(id_file):
+                with open(id_file, "r") as f:
+                    profile_id = f.read().strip()
+            else:
+                profile_id = f"user_{uuid.uuid4().hex[:8]}"
+                with open(id_file, "w") as f:
+                    f.write(profile_id)
+        elif isinstance(profile, str):
+            profile_id = profile
+
         workers = list(self._r_smembers(WORKERS_SET))
         random.shuffle(workers)
         
@@ -122,7 +143,8 @@ class BrowserClient:
                     "browser_id": bid,
                     "worker": worker_name,
                     "browser_type": browser_type,
-                    "record": record # Store flag locally
+                    "record": record, # Store flag locally
+                    "profile_id": profile_id # Pass to engine for smart swap
                 }
 
                 # --- START RECORDING SIGNAL ---
@@ -176,6 +198,8 @@ class BrowserClient:
             "browser_id": self.session["browser_id"],
             "worker_name": self.session["worker"],
             "browser_type": self.session["browser_type"],
+            "profile_id": self.session.get("profile_id"),
+            "record": self.session.get("record", False),
             "action": action,
             "args": args,
             "result_key": result_key

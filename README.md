@@ -36,6 +36,8 @@ This architecture enables:
 - Strong isolation (no cross-session leaks)
 - Scalable browser fleets
 - Native video, screenshots, MFA, and persistence
+- **Dynamic Persistence**: Maintain session state, cookies, and site data with named profiles.
+- **Smart Swapping**: Instant switching between pre-warmed pooled instances and persistent user environments.
 
 The SDK communicates with isoFleet over Redis, orchestrating browser lifecycle, execution, and artifacts.
 
@@ -100,8 +102,10 @@ browser = BrowserClient(
 from isoautomate import BrowserClient
 
 with BrowserClient() as browser:
-    # Acquire a session with recording enabled
-    browser.acquire(browser_type="chrome", record=True)
+    # Optional parameters: 
+    # record: bool (Capture session video)
+    # profile: str or True (Enable persistence/save browser state)
+    browser.acquire(browser_type="chrome_profiled", record=True, profile="social_bot_01")
     
     browser.open_url("https://example.com")
     browser.assert_text("Example Domain")
@@ -110,6 +114,21 @@ with BrowserClient() as browser:
 print(browser.video_url)
 print(browser.session_data)
 ```
+
+### Persistence (Save Browser State)
+
+Enable persistent sessions to keep logins and site data across different script runs.
+
+```python
+# Option A: Direct ID (Best for multi-account management)
+browser.acquire(profile="account_user_A")
+
+# Option B: Managed ID (Auto-generates/retrieves a project-specific ID)
+browser.acquire(profile=True)
+```
+Note: Persistence requires a Team or Business plan on your isoFleet worker.
+
+
 
 ### Manual Control
 
@@ -138,7 +157,8 @@ Failure screenshots are saved to:
 screenshots/failures/
 ```
 
-### Video Recording
+### Video Recording & Auditing
+Capture browser behaviour as videos of your automation for debugging or compliance.
 
 ```python
 browser.acquire(record=True)
