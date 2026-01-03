@@ -12,7 +12,7 @@
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
   </a>
   <a href="https://isoautomate.com/docs">
-    <img src="https://img.shields.io/badge/Docs-isoautomate.com-orange.svg" alt="Documentation">
+    <img src="https://img.shields.io/badge/Docs-isoautomate.com-blue.svg" alt="Documentation">
   </a>
 </div>
 
@@ -67,7 +67,7 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=yourpassword
 REDIS_DB=0
-REDIS_SSL=true
+REDIS_SSL=False
 ```
 
 ### Method 2: Direct Initialization
