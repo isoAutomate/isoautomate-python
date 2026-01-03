@@ -128,6 +128,9 @@ class BrowserClient:
         elif isinstance(profile, str):
             profile_id = profile
 
+        # Track if the infrastructure setup (profile/record) has been sent to the worker
+        self._init_sent = False
+        
         workers = list(self._r_smembers(WORKERS_SET))
         random.shuffle(workers)
         
@@ -143,13 +146,9 @@ class BrowserClient:
                     "browser_id": bid,
                     "worker": worker_name,
                     "browser_type": browser_type,
-                    "record": record, # Store flag locally
-                    "profile_id": profile_id # Pass to engine for smart swap
+                    "record": record,
+                    "profile_id": profile_id 
                 }
-
-                # --- START RECORDING SIGNAL ---
-                if record:
-                    self._send("start_recording", timeout=5)
 
                 return {"status": "ok", "browser_id": bid, "worker": worker_name}
 
@@ -197,13 +196,19 @@ class BrowserClient:
             "task_id": task_id,
             "browser_id": self.session["browser_id"],
             "worker_name": self.session["worker"],
-            "browser_type": self.session["browser_type"],
-            "profile_id": self.session.get("profile_id"),
-            "record": self.session.get("record", False),
             "action": action,
             "args": args,
             "result_key": result_key
         }
+        
+        # Only attach infrastructure flags if they haven't been processed by the worker yet
+        if not self._init_sent:
+            if self.session.get("record"):
+                payload["record"] = True
+            
+            if self.session.get("profile_id"):
+                payload["profile_id"] = self.session["profile_id"]
+                payload["browser_type"] = self.session["browser_type"]
         
         self._r_rpush(queue, json.dumps(payload))
         
@@ -211,6 +216,9 @@ class BrowserClient:
         while time.time() - start < timeout:
             res = self._r_get(result_key)
             if res:
+                # Once we get a successful result back, we know the worker has initialized 
+                # the profile/recording state for this session.
+                self._init_sent = True
                 self._r_delete(result_key)
                 return json.loads(res)
             time.sleep(0.05)
