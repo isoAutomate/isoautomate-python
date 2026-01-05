@@ -149,6 +149,9 @@ class BrowserClient:
                     "profile_id": profile_id 
                 }
 
+                print(f"[SDK] Initializing environment on worker {worker_name}...", flush=True)
+                self._send("get_title") #Force sending a simple action so that persistent browser will spawn in the engine
+                
                 return {"status": "ok", "browser_id": bid, "worker": worker_name}
 
         raise BrowserError(f"No browsers available for type: '{browser_type}'. Check if your workers are running and the type is correct.")

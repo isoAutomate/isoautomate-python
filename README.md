@@ -100,8 +100,8 @@ with BrowserClient() as browser:
     browser.open_url("https://example.com")
     browser.assert_text("Example Domain")
 
-# Video URL is available after the context block ends
-print(f"Session recording: {browser.video_url}")
+    # Video URL is available after the context block ends
+    print(f"Session recording: {browser.video_url}")
 ```
 
 ### 2. Manual Control
