@@ -47,7 +47,6 @@ class BrowserClient:
             self.r = redis.Redis.from_url(
                 self.redis_url, 
                 decode_responses=True,
-                ssl_cert_reqs=None 
             )
         else:
             self.r = redis.Redis(
