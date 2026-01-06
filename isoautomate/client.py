@@ -7,6 +7,7 @@ import base64
 import datetime
 import random
 from dotenv import load_dotenv
+import __main__
 
 from .config import (
     DEFAULT_REDIS_HOST, DEFAULT_REDIS_PORT, DEFAULT_REDIS_PASSWORD, DEFAULT_REDIS_DB,
@@ -15,8 +16,21 @@ from .config import (
 from .exceptions import BrowserError
 from .utils import redis_retry
 
+# --- Robust .env Loading ---
+def _load_package_env():
+    # 1. Check current working directory
+    cwd_env = os.path.join(os.getcwd(), '.env')
+    load_dotenv(dotenv_path=cwd_env)
+
+    # 2. Check where the user's script is actually located
+    if hasattr(__main__, "__file__"):
+        main_script_dir = os.path.dirname(os.path.abspath(__main__.__file__))
+        main_env = os.path.join(main_script_dir, '.env')
+        if main_env != cwd_env:
+            load_dotenv(dotenv_path=main_env)
+
 # Automatically load env vars if present
-load_dotenv()
+_load_package_env()
 
 class BrowserClient:
     """
