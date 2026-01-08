@@ -163,8 +163,13 @@ class BrowserClient:
                     "profile_id": profile_id 
                 }
 
-                print(f"[SDK] Initializing environment on worker {worker_name}...", flush=True)
-                self._send("get_title") #Force sending a simple action so that persistent browser will spawn in the engine
+                if profile_id or record:
+                    print(f"[SDK] Initializing persistent environment on {worker_name}...", flush=True)
+                    self._send("get_title") 
+                else:
+                    # For standard browsers, we can either skip or send a faster 'is_online' check
+                    # But 'get_title' is already very fast.
+                    pass
                 
                 return {"status": "ok", "browser_id": bid, "worker": worker_name}
 
@@ -720,13 +725,23 @@ class BrowserClient:
         return res
     
     # --- New File Upload ---
-    def upload_file(self, selector, file_path): 
+    def upload_file(self, selector, local_file_path): 
         """
-        Uploads a file. 
-        Note: file_path must be accessible by the REMOTE browser engine (server side).
-        For Docker, you might need to map volumes.
+        Reads a local file, encodes it, and sends it to the remote worker.
         """
-        return self._send("upload_file", {"selector": selector, "file_path": file_path})
+        if not os.path.exists(local_file_path):
+            return {"status": "error", "error": f"Local file not found: {local_file_path}"}
+
+        with open(local_file_path, "rb") as f:
+            file_data = base64.b64encode(f.read()).decode("utf-8")
+        
+        filename = os.path.basename(local_file_path)
+        
+        return self._send("upload_file", {
+            "selector": selector, 
+            "file_name": filename,
+            "file_data": file_data
+        })
 
     # --- New Mouse Actions ---
     def double_click(self, selector): return self._send("double_click", {"selector": selector})
