@@ -6,6 +6,7 @@ import redis
 import base64
 import datetime
 import random
+import logging
 from dotenv import load_dotenv
 import __main__
 
@@ -16,18 +17,32 @@ from .config import (
 from .exceptions import BrowserError
 from .utils import redis_retry
 
-# --- Robust .env Loading ---
-def _load_package_env():
-    # 1. Check current working directory
-    cwd_env = os.path.join(os.getcwd(), '.env')
-    load_dotenv(dotenv_path=cwd_env)
+# Set up a logger for the SDK
+logger = logging.getLogger("isoautomate")
+# By default, do not output anything unless the user configures it
+logger.addHandler(logging.NullHandler())
 
-    # 2. Check where the user's script is actually located
-    if hasattr(__main__, "__file__"):
-        main_script_dir = os.path.dirname(os.path.abspath(__main__.__file__))
-        main_env = os.path.join(main_script_dir, '.env')
-        if main_env != cwd_env:
-            load_dotenv(dotenv_path=main_env)
+# --- Robust .env Loading ---
+def _load_package_env(custom_path=None):
+    # 1. If user provided a specific path, load that first
+    if custom_path and os.path.exists(custom_path):
+        load_dotenv(dotenv_path=custom_path, override=True)
+        return
+
+    # 2. Check current working directory for standard .env
+    cwd_env = os.path.join(os.getcwd(), '.env')
+    if os.path.exists(cwd_env):
+        load_dotenv(dotenv_path=cwd_env)
+
+    # 3. Check where the user's entry-point script is located
+    try:
+        if hasattr(__main__, "__file__"):
+            main_script_dir = os.path.dirname(os.path.abspath(__main__.__file__))
+            main_env = os.path.join(main_script_dir, '.env')
+            if main_env != cwd_env and os.path.exists(main_env):
+                load_dotenv(dotenv_path=main_env)
+    except Exception:
+        pass # Fallback for interactive shells/notebooks
 
 # Automatically load env vars if present
 _load_package_env()
@@ -39,39 +54,55 @@ class BrowserClient:
     Fully synchronized with SeleniumBase CDP Mode capabilities.
     """
 
-    def __init__(self, redis_url=None, redis_host=None, redis_port=None, redis_password=None, redis_db=None, redis_ssl=False):
+    def __init__(self, redis_url=None, redis_host=None, redis_port=None, redis_password=None, redis_db=None, redis_ssl=False, env_file=None):
+        
+        if env_file:
+            _load_package_env(custom_path=env_file)
+            
         # Check Environment
-        env_host = os.getenv("REDIS_HOST", DEFAULT_REDIS_HOST)
-        env_port = int(os.getenv("REDIS_PORT", DEFAULT_REDIS_PORT))
-        env_pass = os.getenv("REDIS_PASSWORD", DEFAULT_REDIS_PASSWORD)
-        env_db = int(os.getenv("REDIS_DB", DEFAULT_REDIS_DB))
+        env_url = os.getenv("REDIS_URL")
+        env_host = os.getenv("REDIS_HOST")
+        env_port = os.getenv("REDIS_PORT")
+        env_pass = os.getenv("REDIS_PASSWORD")
+        env_db = os.getenv("REDIS_DB")
         env_ssl = os.getenv("REDIS_SSL", "False").lower() in ("true", "1", "yes")
-        env_url = os.getenv("REDIS_URL", None)
 
         # Final Config
         self.redis_url = redis_url or env_url
         self.host = redis_host or env_host
         self.port = redis_port or env_port
         self.password = redis_password or env_pass
-        self.db = redis_db if redis_db is not None else env_db
+        self.db = redis_db if redis_db is not None else (env_db or 0)
         self.ssl = redis_ssl or env_ssl
+        
+        # STRICT VALIDATION: we have enough info to connect?
+        if not self.redis_url and not self.host:
+            raise BrowserError(
+                "Missing Redis Configuration. You must provide a 'redis_url' or 'redis_host'. "
+                "Check your .env file or pass them directly to BrowserClient()."
+            )
 
         # Create Connection
-        if self.redis_url:
-            self.r = redis.Redis.from_url(
-                self.redis_url, 
-                decode_responses=True,
-            )
-        else:
-            self.r = redis.Redis(
-                host=self.host,
-                port=self.port,
-                password=self.password,
-                db=self.db,
-                decode_responses=True,
-                ssl=self.ssl, 
-                ssl_cert_reqs=None
-            )
+        try:
+            if self.redis_url:
+                self.r = redis.Redis.from_url(
+                    self.redis_url, 
+                    decode_responses=True
+                )
+            else:
+                # Ensure port is an integer
+                actual_port = int(self.port) if self.port else 6379
+                self.r = redis.Redis(
+                    host=self.host,
+                    port=actual_port,
+                    password=self.password,
+                    db=int(self.db),
+                    decode_responses=True,
+                    ssl=self.ssl,
+                    ssl_cert_reqs=None
+                )
+        except Exception as e:
+            raise BrowserError(f"Failed to initialize Redis connection: {e}")
 
         self.session = None
         self.video_url = None
@@ -107,10 +138,10 @@ class BrowserClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.session:
             try:
-                print(f"[SDK] Auto-releasing session {self.session.get('browser_id', '')[:6]}...", flush=True)
+                logger.info(f"[SDK] Auto-releasing session {self.session.get('browser_id', '')[:6]}...")
                 self.release()
             except Exception as e:
-                print(f"[SDK] Release failed during cleanup: {e}", flush=True)
+                logger.error(f"[SDK] Release failed during cleanup: {e}")
         return False
     
     # ---------------------------- Connection & Lifecycle ----------------------------
@@ -164,8 +195,8 @@ class BrowserClient:
                 }
 
                 if profile_id or record:
-                    print(f"[SDK] Initializing persistent environment on {worker_name}...", flush=True)
-                    self._send("get_title") 
+                    logger.info(f"[SDK] Initializing persistent environment on {worker_name}...")
+                    self._send("get_title")
                 else:
                     # For standard browsers, we can either skip or send a faster 'is_online' check
                     # But 'get_title' is already very fast.
@@ -182,24 +213,24 @@ class BrowserClient:
         try:
             # --- STOP RECORDING SIGNAL ---
             if self.session.get("record"):
-                print("[SDK] Stopping recording...", flush=True)
-                res = self._send("stop_recording", timeout=120) 
+                logger.info("[SDK] Stopping recording...")
+                res = self._send("stop_recording", timeout=120)
                 
                 if "video_url" in res:
                     self.video_url = res["video_url"]
-                    print(f"[SDK] Session Video: {self.video_url}", flush=True)
+                    logger.info(f"[SDK] Session Video: {self.video_url}")
 
             # Standard Release
-            print("[SDK] Sending release command...", flush=True)
+            logger.info("[SDK] Sending release command...")
             res = self._send("release_browser")
             
             self.session_data = res
             
-            print(f"[SDK] Release result: {res}", flush=True)
+            logger.info(f"[SDK] Release result: {res}")
             return res
         
         except Exception as e:
-            print(f"[SDK ERROR] Error inside release: {e}", flush=True)
+            logger.error(f"[SDK ERROR] Error inside release: {e}")
             return {"status": "error", "error": str(e)}
         
         finally:
@@ -272,9 +303,9 @@ class BrowserClient:
                     with open(path, "wb") as f:
                         f.write(base64.b64decode(res["screenshot_base64"]))
                         
-                    print(f" [Assertion Fail] Screenshot saved: {path}")
+                    logger.warning(f"[Assertion Fail] Screenshot saved: {path}")
                 except Exception as e:
-                    print(f" [SDK Error] Failed to save failure screenshot: {e}")
+                    logger.error(f"[SDK Error] Failed to save failure screenshot: {e}")
 
             # 2. Raise Python Error (So the test script fails)
             error_msg = res.get("error", "Unknown assertion error")

@@ -11,9 +11,10 @@ SCREENSHOT_FOLDER = "screenshots"
 ASSERTION_FOLDER = os.path.join(SCREENSHOT_FOLDER, "failures")
 
 # ---------------------------------------------------------
-# DEFAULTS (Fallback values if Env Vars are missing)
+# NO DEFAULTS (Force user configuration)
 # ---------------------------------------------------------
-DEFAULT_REDIS_HOST = "localhost"
-DEFAULT_REDIS_PORT = 6379
+# We leave these as None so the Client can check if they were provided
+DEFAULT_REDIS_HOST = None
+DEFAULT_REDIS_PORT = None
 DEFAULT_REDIS_PASSWORD = None
 DEFAULT_REDIS_DB = 0

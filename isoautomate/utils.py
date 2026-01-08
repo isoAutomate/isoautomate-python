@@ -17,7 +17,7 @@ def redis_retry(max_attempts=3, backoff_factor=0.2):
                 except (redis.ConnectionError, redis.TimeoutError) as e:
                     attempt += 1
                     if attempt > max_attempts:
-                        print(f"[isoAutomate SDK Error] Failed {func.__name__}: {e}")
+                        # print(f"[isoAutomate SDK Error] Failed {func.__name__}: {e}")
                         raise e
                     time.sleep(backoff_factor * (2 ** (attempt - 1)))
         return wrapper
