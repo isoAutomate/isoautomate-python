@@ -95,13 +95,13 @@ from isoautomate import BrowserClient
 # The context manager handles browser.release() automatically
 with BrowserClient() as browser:
     # Acquire the browser instance
-    browser.acquire(browser_type="chrome_profiled", record=True)
+    browser.acquire(browser_type="chrome_profiled", video=True)
     
     browser.open_url("https://example.com")
     browser.assert_text("Example Domain")
 
     # Video URL is available after the context block ends
-    print(f"Session recording: {browser.video_url}")
+    print(f"Session video: {browser.video_url}")
 ```
 
 ### 2. Manual Control
@@ -128,7 +128,7 @@ The `acquire()` method is used to claim a browser from your remote fleet. It sup
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `browser_type` | `str` | `"chrome"` | The browser to use: `chrome`, `brave`, `opera`, or their `_profiled` variants for CDP mode. |
-| `record` | `bool` | `False` | When True, starts an MP4 recording of the browser session. |
+| `video` | `bool` | `False` | When True, starts an MP4 recording of the browser session. |
 | `profile` | `str` \| `bool` | `None` | Enables persistence for cookies, logins, and site data. |
 
 ### Understanding Persistence (Profiles)
@@ -457,7 +457,7 @@ with BrowserClient() as browser:
     browser.acquire(
         browser_type="chrome_profiled", 
         profile="User_Alpha", 
-        record=True
+        video=True
     )
 
     # 2. Navigate and wait for content

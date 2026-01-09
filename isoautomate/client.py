@@ -146,11 +146,11 @@ class BrowserClient:
     
     # ---------------------------- Connection & Lifecycle ----------------------------
 
-    def acquire(self, browser_type="chrome", record=False, profile=None):
+    def acquire(self, browser_type="chrome", video=False, profile=None):
         """
         Acquire a browser session. 
         :param browser_type: The engine to use (e.g., chrome, chrome_profiled).
-        :param record: Set True to record the session video.
+        :param video: Set True to capture the session video in MP4 format.
         :param profile: String for custom persistence, or True for default project persistence.
         """
         # --- PROFILE ID LOGIC ---
@@ -172,7 +172,7 @@ class BrowserClient:
         elif isinstance(profile, str):
             profile_id = profile
 
-        # Track if the infrastructure setup (profile/record) has been sent to the worker
+        # Track if the infrastructure setup (profile/video) has been sent to the worker
         self._init_sent = False
         
         workers = list(self._r_smembers(WORKERS_SET))
@@ -190,11 +190,11 @@ class BrowserClient:
                     "browser_id": bid,
                     "worker": worker_name,
                     "browser_type": browser_type,
-                    "record": record,
+                    "video": video,
                     "profile_id": profile_id 
                 }
 
-                if profile_id or record:
+                if profile_id or video:
                     logger.info(f"[SDK] Initializing persistent environment on {worker_name}...")
                     self._send("get_title")
                 else:
@@ -211,10 +211,10 @@ class BrowserClient:
             return {"status": "error", "error": "not_acquired"}
         
         try:
-            # --- STOP RECORDING SIGNAL ---
-            if self.session.get("record"):
-                logger.info("[SDK] Stopping recording...")
-                res = self._send("stop_recording", timeout=120)
+            # --- STOP Video SIGNAL ---
+            if self.session.get("video"):
+                logger.info("[SDK] Stopping video...")
+                res = self._send("stop_video", timeout=120)
                 
                 if "video_url" in res:
                     self.video_url = res["video_url"]
@@ -255,8 +255,8 @@ class BrowserClient:
         
         # Only attach infrastructure flags if they haven't been processed by the worker yet
         if not self._init_sent:
-            if self.session.get("record"):
-                payload["record"] = True
+            if self.session.get("video"):
+                payload["video"] = True
             
             if self.session.get("profile_id"):
                 payload["profile_id"] = self.session["profile_id"]
@@ -269,7 +269,7 @@ class BrowserClient:
             res = self._r_get(result_key)
             if res:
                 # Once we get a successful result back, we know the worker has initialized 
-                # the profile/recording state for this session.
+                # the profile/video state for this session.
                 self._init_sent = True
                 self._r_delete(result_key)
                 return json.loads(res)
