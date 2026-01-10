@@ -106,6 +106,7 @@ class BrowserClient:
 
         self.session = None
         self.video_url = None
+        self.record_url = None
         self.session_data = {}
 
     # ---------------------------- Internal Redis Wrappers ----------------------------
@@ -132,6 +133,7 @@ class BrowserClient:
 
     def __enter__(self):
         self.video_url = None
+        self.record_url = None
         self.session_data = {}
         return self
     
@@ -146,7 +148,7 @@ class BrowserClient:
     
     # ---------------------------- Connection & Lifecycle ----------------------------
 
-    def acquire(self, browser_type="chrome", video=False, profile=None):
+    def acquire(self, browser_type="chrome", video=False, profile=None, record=False):
         """
         Acquire a browser session. 
         :param browser_type: The engine to use (e.g., chrome, chrome_profiled).
@@ -191,15 +193,19 @@ class BrowserClient:
                     "worker": worker_name,
                     "browser_type": browser_type,
                     "video": video,
-                    "profile_id": profile_id 
+                    "profile_id": profile_id,
+                    "record": record
                 }
 
-                if profile_id or video:
+                # --- SMART HOLDING STRATEGY ---
+                # If we need a specific profile or video, the worker needs time to 
+                # swap/boot. We send a dummy command so acquire() BLOCKS until ready.
+                if profile_id or video or record:
                     logger.info(f"[SDK] Initializing persistent environment on {worker_name}...")
-                    self._send("get_title")
+                    self._send("get_title") # <--- BLOCKS here. Correct UX.
                 else:
-                    # For standard browsers, we can either skip or send a faster 'is_online' check
-                    # But 'get_title' is already very fast.
+                    # For standard, pre-warmed browsers, we return INSTANTLY.
+                    # logger.info(f"[SDK] Acquired warmed browser {bid}")
                     pass
                 
                 return {"status": "ok", "browser_id": bid, "worker": worker_name}
@@ -219,6 +225,13 @@ class BrowserClient:
                 if "video_url" in res:
                     self.video_url = res["video_url"]
                     logger.info(f"[SDK] Session Video: {self.video_url}")
+            
+            if self.session.get("record"):
+                logger.info("[SDK] Finalizing session record (RRWeb)...")
+                res_r = self._send("stop_record", timeout=60) # Action name: stop_record
+                if "record_url" in res_r:
+                    self.record_url = res_r["record_url"]
+                    logger.info(f"[SDK] Session Record URL: {self.record_url}")
 
             # Standard Release
             logger.info("[SDK] Sending release command...")
@@ -258,6 +271,9 @@ class BrowserClient:
             if self.session.get("video"):
                 payload["video"] = True
             
+            if self.session.get("record"):
+                payload["record"] = True
+        
             if self.session.get("profile_id"):
                 payload["profile_id"] = self.session["profile_id"]
                 payload["browser_type"] = self.session["browser_type"]
