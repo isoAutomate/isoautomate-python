@@ -129,6 +129,7 @@ The `acquire()` method is used to claim a browser from your remote fleet. It sup
 | :--- | :--- | :--- | :--- |
 | `browser_type` | `str` | `"chrome"` | The browser to use: `chrome`, `brave`, `opera`, or their `_profiled` variants for CDP mode. |
 | `video` | `bool` | `False` | When True, starts an MP4 recording of the browser session. |
+| `record` | `bool` | `False` | When True, records DOM events for session replay. |
 | `profile` | `str` \| `bool` | `None` | Enables persistence for cookies, logins, and site data. |
 
 ### Understanding Persistence (Profiles)
@@ -329,7 +330,8 @@ These methods allow you to retrieve data from the remote browser and return it t
 | `get_text(selector)` | `selector (str="body")` | Retrieves the visible text content of an element. Defaults to the entire page body. |
 | `get_title()` | None | Returns the current page title as shown in the browser tab. |
 | `get_current_url()` | None | Returns the absolute URL of the page currently being viewed. |
-| `get_page_source()` | None | Returns the full raw HTML source code of the current page. |
+| `get_page_source()` | None | Returns the full raw HTML source code of the current page as a string. |
+| `save_page_source(name)` | `name (str="source.html")` | Downloads the full raw HTML source code and saves it to a local file. |
 | `get_html(selector)` | `selector (str=None)` | Returns the inner HTML of a specific element. If no selector is provided, returns the `<html>` content. |
 | `get_attribute(selector, attr)` | `selector, attr (str)` | Retrieves the value of a specific HTML attribute (e.g., `src`, `href`, `value`). |
 | `get_element_attributes(sel)` | `selector (str)` | Returns a dictionary containing all attributes of the targeted element. |
@@ -350,6 +352,9 @@ price = browser.get_text(".product-price")
 # Extract a link from a button
 download_url = browser.get_attribute("#download-link", "href")
 
+# Save the full HTML for offline parsing
+browser.save_page_source("debug_page.html")
+
 # Check visibility before interacting
 if browser.is_element_visible("#cookie-consent"):
     browser.click("#accept-all")
@@ -361,14 +366,15 @@ These methods provide direct control over browser cookies and storage, allowing 
 
 | Method | Arguments | Description |
 | :--- | :--- | :--- |
-| `get_cookies()` | None | Returns a list of dictionaries containing all cookies for the current domain. |
+| `get_all_cookies()` | None | Returns a list of dictionaries containing all cookies for the current domain. |
 | `get_cookie_string()` | None | Returns all cookies formatted as a single string (useful for header injection). |
 | `add_cookie(cookie_dict)` | `cookie_dict (dict)` | Injects a new cookie into the current session. |
-| `delete_all_cookies()` | None | Clears all cookies from the current browser session. |
-| `get_local_storage()` | None | Retrieves all key-value pairs stored in the browser's `localStorage`. |
-| `get_session_storage()` | None | Retrieves all key-value pairs stored in the browser's `sessionStorage`. |
-| `clear_local_storage()` | None | Deletes all data stored in `localStorage`. |
-| `clear_session_storage()` | None | Deletes all data stored in `sessionStorage`. |
+| `delete_cookie(name)` | `name (str)` | Deletes a specific cookie by name. |
+| `clear_cookies()` | None | Clears all cookies from the current browser session. |
+| `save_cookies(name)` | `name (str)` | Saves current cookies to a local JSON file. |
+| `load_cookies(name)` | `name (str)` | Loads cookies from a local JSON file. |
+| `get_local_storage_item(key)` | `key (str)` | Retrieves a specific value from `localStorage`. |
+| `set_local_storage_item(key, value)` | `key, value (str)` | Sets a specific key-value pair in `localStorage`. |
 
 #### Usage Examples:
 
@@ -394,13 +400,12 @@ These methods are essential for handling dynamic content. They ensure your scrip
 
 | Method | Arguments | Description |
 | :--- | :--- | :--- |
-| `wait(seconds)` | `seconds (float)` | Performs a hard pause for the specified number of seconds. |
+| `sleep(seconds)` | `seconds (float)` | Performs a hard pause for the specified number of seconds. |
 | `wait_for_element(selector, timeout)` | `selector (str)`, `timeout (int=None)` | Pauses execution until the element appears in the DOM. |
 | `wait_for_text(text, timeout)` | `text (str)`, `timeout (int=None)` | Pauses execution until the specific text is visible on the page. |
+| `wait_for_network_idle()` | None | Pauses execution until network activity stops (useful for SPAs). |
 | `assert_element(selector)` | `selector (str)` | Validates that an element exists. Raises an `AssertionError` if not found. |
 | `assert_text(text, selector)` | `text (str)`, `selector (str="body")` | Validates that specific text exists within a chosen element (default: whole page). |
-| `find_element(selector)` | `selector (str)` | Returns the metadata/coordinates for an element once it is located. |
-| `find_elements(selector)` | `selector (str)` | Returns a list of all elements matching the selector. |
 
 #### Usage Examples:
 
@@ -408,11 +413,14 @@ These methods are essential for handling dynamic content. They ensure your scrip
 # Wait for a slow-loading dashboard to appear
 browser.wait_for_element("#dashboard-main", timeout=20)
 
+# Wait for page network activity to settle
+browser.wait_for_network_idle()
+
 # Verify that login was successful
 browser.assert_text("Welcome back, User!", selector="h1")
 
 # Hard pause (use sparingly)
-browser.wait(2.5)
+browser.sleep(2.5)
 ```
 
 ### 10. Scripting & Advanced Features
@@ -421,10 +429,15 @@ These methods allow you to extend the SDK's capabilities by executing custom log
 
 | Method | Arguments | Description |
 | :--- | :--- | :--- |
-| `execute_script(script)` | `script (str)` | Executes raw Javascript within the current page context and returns the result. |
-| `get_performance_metrics()` | None | Returns a detailed dictionary of Chrome performance logs (timing, memory, etc.). |
-| `highlight(selector)` | `selector (str)` | Visually highlights an element in the browser (useful for debugging or video recordings). |
-| `internalize_links()` | None | Rewrites `target="_blank"` links to open in the current tab to maintain session control. |
+| `execute_script(script)` | `script (str)` | Executes raw Javascript within the current page context. |
+| `evaluate(expression)` | `expression (str)` | Evaluates a JS expression and returns the value. |
+| `execute_cdp_cmd(cmd, params)` | `cmd (str)`, `params (dict)` | **God Mode:** Executes raw Chrome DevTools Protocol commands directly. |
+| `get_mfa_code(totp_key)` | `key (str)` | Generates a 2FA/TOTP code from a secret key. |
+| `enter_mfa_code(selector, key)` | `selector`, `key` | Generates a 2FA code and types it into the selector. |
+| `grant_permissions(perms)` | `perms (list)` | Grants browser permissions (e.g., `['clipboardReadWrite']`). |
+| `get_performance_metrics()` | None | Returns a detailed dictionary of Chrome performance logs. |
+| `highlight(selector)` | `selector (str)` | Visually highlights an element (useful for debugging/video). |
+| `internalize_links()` | None | Rewrites `target="_blank"` links to open in the current tab. |
 | `get_user_agent()` | None | Retrieves the current browser's User Agent string. |
 
 #### Usage Examples:
@@ -433,13 +446,17 @@ These methods allow you to extend the SDK's capabilities by executing custom log
 # Execute JS to get the value of a complex hidden variable
 user_id = browser.execute_script("return window.appConfig.currentUserId;")
 
+# GOD MODE: Clear browser cache directly via CDP
+browser.execute_cdp_cmd("Network.clearBrowserCache", {})
+
+# GOD MODE: Emulate a mobile device metrics
+browser.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {
+    "width": 375, "height": 812, "deviceScaleFactor": 3, "mobile": True
+})
+
 # Highlight an element before clicking it for a better video recording
 browser.highlight("#buy-now-button")
 browser.click("#buy-now-button")
-
-# Check performance to ensure the page isn't lagging
-metrics = browser.get_performance_metrics()
-print(f"Page Load Time: {metrics.get('loadEventEnd')}ms")
 ```
 
 ### 11. Full Example: Social Media Automation
