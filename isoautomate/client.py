@@ -271,44 +271,9 @@ class BrowserClient:
                 return {"status": "error", "error": f"Failed to save local file: {e}"}
         return res
 
-    # --- Actions ---
-    def screenshot(self, filename=None, selector=None):
-        if filename is None:
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            unique_id = uuid.uuid4().hex[:4]
-            filename = os.path.join(SCREENSHOT_FOLDER, f"{timestamp}_{unique_id}.png")
-        
-        res = self._send("save_screenshot", {"name": "temp.png", "selector": selector})
-        return self._save_base64_file(res, "image_base64", filename)
-    
-    def save_as_pdf(self, filename=None):
-        if filename is None: filename = f"doc_{int(time.time())}.pdf"
-        res = self._send("save_as_pdf")
-        return self._save_base64_file(res, "pdf_base64", filename)
-
-    def save_page_source(self, name="source.html"):
-        res = self._send("save_page_source")
-        # Handle the special 'source_base64' key manual logic if needed, 
-        # or reuse the helper if it's pure binary content. 
-        # Source is text, so we decode to utf-8.
-        if res.get("status") == "ok" and "source_base64" in res:
-            try:
-                data = base64.b64decode(res["source_base64"]).decode("utf-8")
-                with open(name, "w", encoding="utf-8") as f: f.write(data)
-                return {"status": "ok", "path": os.path.abspath(name)}
-            except Exception as e: return {"status": "error", "error": str(e)}
-        return res
-
-    def execute_cdp_cmd(self, cmd, params={}):
-        return self._send("execute_cdp_cmd", {"cmd": cmd, "params": params})
-
-    def upload_file(self, selector, local_file_path): 
-        if not os.path.exists(local_file_path): return {"status": "error", "error": f"Local file not found: {local_file_path}"}
-        with open(local_file_path, "rb") as f: file_data = base64.b64encode(f.read()).decode("utf-8")
-        filename = os.path.basename(local_file_path)
-        return self._send("upload_file", {"selector": selector, "file_name": filename, "file_data": file_data})
-
-    # --- Standard Mappings ---
+    # ==================================================
+    # 1. NAVIGATION & LIFECYCLE
+    # ==================================================
     def open_url(self, url): return self._send("open_url", {"url": url})
     def reload(self, ignore_cache=True, script=None): return self._send("reload", {"ignore_cache": ignore_cache, "script_to_evaluate_on_load": script})
     def refresh(self): return self._send("refresh")
@@ -317,6 +282,9 @@ class BrowserClient:
     def internalize_links(self): return self._send("internalize_links")
     def get_navigation_history(self): return self._send("get_navigation_history")
     
+    # ==================================================
+    # 2. MOUSE INTERACTION
+    # ==================================================
     def click(self, selector, timeout=None): return self._send("click", {"selector": selector, "timeout": timeout})
     def click_if_visible(self, selector): return self._send("click_if_visible", {"selector": selector})
     def click_visible_elements(self, selector, limit=0): return self._send("click_visible_elements", {"selector": selector, "limit": limit})
@@ -327,7 +295,10 @@ class BrowserClient:
     def mouse_click(self, selector): return self._send("mouse_click", {"selector": selector})
     def nested_click(self, parent_selector, selector): return self._send("nested_click", {"parent_selector": parent_selector, "selector": selector})
     def click_with_offset(self, selector, x, y, center=False): return self._send("click_with_offset", {"selector": selector, "x": x, "y": y, "center": center})
-    
+
+    # ==================================================
+    # 3. KEYBOARD & INPUT
+    # ==================================================
     def type(self, selector, text, timeout=None): return self._send("type", {"selector": selector, "text": text, "timeout": timeout})
     def press_keys(self, selector, text): return self._send("press_keys", {"selector": selector, "text": text})
     def send_keys(self, selector, text): return self._send("send_keys", {"selector": selector, "text": text})
@@ -337,6 +308,9 @@ class BrowserClient:
     def submit(self, selector): return self._send("submit", {"selector": selector})
     def focus(self, selector): return self._send("focus", {"selector": selector})
     
+    # ==================================================
+    # 4. GUI ACTIONS (PyAutoGUI / Profiled)
+    # ==================================================
     def gui_click_element(self, selector, timeframe=0.25): return self._send("gui_click_element", {"selector": selector, "timeframe": timeframe})
     def gui_click_x_y(self, x, y, timeframe=0.25): return self._send("gui_click_x_y", {"x": x, "y": y, "timeframe": timeframe})
     def gui_click_captcha(self): return self._send("gui_click_captcha")
@@ -346,10 +320,16 @@ class BrowserClient:
     def gui_write(self, text): return self._send("gui_write", {"text": text})
     def gui_press_keys(self, keys_list): return self._send("gui_press_keys", {"keys": keys_list})
     
+    # ==================================================
+    # 5. SELECTS & DROPDOWNS
+    # ==================================================
     def select_option_by_text(self, selector, text): return self._send("select_option_by_text", {"selector": selector, "text": text})
     def select_option_by_value(self, selector, value): return self._send("select_option_by_value", {"selector": selector, "value": value})
     def select_option_by_index(self, selector, index): return self._send("select_option_by_index", {"selector": selector, "index": index})
     
+    # ==================================================
+    # 6. WINDOW & TAB MANAGEMENT
+    # ==================================================
     def open_new_tab(self, url): return self._send("open_new_tab", {"url": url})
     def open_new_window(self, url): return self._send("open_new_window", {"url": url})
     def switch_to_tab(self, index=-1): return self._send("switch_to_tab", {"index": index})
@@ -360,6 +340,9 @@ class BrowserClient:
     def medimize(self): return self._send("medimize")
     def tile_windows(self): return self._send("tile_windows")
     
+    # ==================================================
+    # 7. DATA EXTRACTION (GETTERS)
+    # ==================================================
     def get_text(self, selector="body"): return self._send("get_text", {"selector": selector})
     def get_title(self): return self._send("get_title")
     def get_current_url(self): return self._send("get_current_url")
@@ -377,9 +360,13 @@ class BrowserClient:
     def is_checked(self, selector): return self._send("is_checked", {"selector": selector})
     def is_selected(self, selector): return self._send("is_selected", {"selector": selector})
     def is_online(self): return self._send("is_online")
-    def get_performance_metrics(self): return self._send("get_performance_metrics")
     
+    # ==================================================
+    # 8. COOKIES & STORAGE
+    # ==================================================
     def get_all_cookies(self): return self._send("get_all_cookies")
+    def add_cookie(self, cookie_dict): return self._send("add_cookie", {"cookie": cookie_dict})
+    def delete_cookie(self, name): return self._send("delete_cookie", {"name": name})
     def save_cookies(self, name="cookies.txt"):
         res = self._send("save_cookies")
         if res.get("status") == "ok" and "cookies" in res:
@@ -402,21 +389,27 @@ class BrowserClient:
     def set_local_storage_item(self, key, value): return self._send("set_local_storage_item", {"key": key, "value": value})
     def get_session_storage_item(self, key): return self._send("get_session_storage_item", {"key": key})
     def set_session_storage_item(self, key, value): return self._send("set_session_storage_item", {"key": key, "value": value})
-    def export_session(self): return self._send("get_storage_state")
-    def import_session(self, state_dict): return self._send("set_storage_state", {"state": state_dict})
     
+    # ==================================================
+    # 9. VISUALS & HIGHLIGHTS
+    # ==================================================
     def highlight(self, selector): return self._send("highlight", {"selector": selector})
     def highlight_overlay(self, selector): return self._send("highlight_overlay", {"selector": selector})
     def remove_element(self, selector): return self._send("remove_element", {"selector": selector})
     def flash(self, selector, duration=1): return self._send("flash", {"selector": selector, "duration": duration})
     
+    # ==================================================
+    # 10. ADVANCED (MFA, Permissions, Scripting)
+    # ==================================================
     def get_mfa_code(self, totp_key): return self._send("get_mfa_code", {"totp_key": totp_key})
     def enter_mfa_code(self, selector, totp_key): return self._send("enter_mfa_code", {"selector": selector, "totp_key": totp_key})
     def grant_permissions(self, permissions): return self._send("grant_permissions", {"permissions": permissions})
     def execute_script(self, script): return self._send("execute_script", {"script": script})
     def evaluate(self, expression): return self._send("evaluate", {"expression": expression})
-    def block_urls(self, patterns): return self._send("block_urls", {"patterns": patterns})
-    
+
+    # ==================================================
+    # 11. ASSERTIONS
+    # ==================================================
     def assert_text(self, text, selector="html", screenshot=True): return self._handle_assertion("assert_text", {"text": text, "selector": selector, "screenshot": screenshot})
     def assert_exact_text(self, text, selector="html", screenshot=True): return self._handle_assertion("assert_exact_text", {"text": text, "selector": selector, "screenshot": screenshot})
     def assert_element(self, selector, screenshot=True): return self._handle_assertion("assert_element", {"selector": selector, "screenshot": screenshot})
@@ -428,6 +421,9 @@ class BrowserClient:
     def assert_url(self, url_substring, screenshot=True): return self._handle_assertion("assert_url", {"url": url_substring, "screenshot": screenshot})
     def assert_attribute(self, selector, attribute, value, screenshot=True): return self._handle_assertion("assert_attribute", {"selector": selector, "attribute": attribute, "value": value, "screenshot": screenshot})
     
+    # ==================================================
+    # 12. SCROLLING & WAITING
+    # ==================================================
     def scroll_into_view(self, selector): return self._send("scroll_into_view", {"selector": selector})
     def scroll_to_bottom(self): return self._send("scroll_to_bottom")
     def scroll_to_top(self): return self._send("scroll_to_top")
@@ -439,4 +435,83 @@ class BrowserClient:
     def wait_for_text(self, text, selector="html", timeout=None): return self._send("wait_for_text", {"text": text, "selector": selector, "timeout": timeout})
     def wait_for_element_present(self, selector, timeout=None): return self._send("wait_for_element_present", {"selector": selector, "timeout": timeout})
     def wait_for_element_absent(self, selector, timeout=None): return self._send("wait_for_element_absent", {"selector": selector, "timeout": timeout})
+    def wait_for_element_not_visible(self, selector, timeout=None): return self._send("wait_for_element_not_visible", {"selector": selector, "timeout": timeout})
+    
+    # ==================================================
+    # 13. SCREENSHOTS & FILES
+    # ==================================================
+    def screenshot(self, filename=None, selector=None):
+        if filename is None:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            unique_id = uuid.uuid4().hex[:4]
+            filename = os.path.join(SCREENSHOT_FOLDER, f"{timestamp}_{unique_id}.png")
+        
+        res = self._send("save_screenshot", {"name": "temp.png", "selector": selector})
+        return self._save_base64_file(res, "image_base64", filename)
+    
+    def save_as_pdf(self, filename=None):
+        if filename is None: filename = f"doc_{int(time.time())}.pdf"
+        res = self._send("save_as_pdf")
+        return self._save_base64_file(res, "pdf_base64", filename)
+
+    def save_page_source(self, name="source.html"):
+        res = self._send("save_page_source")
+        if res.get("status") == "ok" and "source_base64" in res:
+            try:
+                data = base64.b64decode(res["source_base64"]).decode("utf-8")
+                with open(name, "w", encoding="utf-8") as f: f.write(data)
+                return {"status": "ok", "path": os.path.abspath(name)}
+            except Exception as e: return {"status": "error", "error": str(e)}
+        return res
+
+    def upload_file(self, selector, local_file_path): 
+        if not os.path.exists(local_file_path): return {"status": "error", "error": f"Local file not found: {local_file_path}"}
+        with open(local_file_path, "rb") as f: file_data = base64.b64encode(f.read()).decode("utf-8")
+        filename = os.path.basename(local_file_path)
+        return self._send("upload_file", {"selector": selector, "file_name": filename, "file_data": file_data})
+    
+    # ==================================================
+    # 14. NETWORK CONTROL
+    # ==================================================
+    def block_urls(self, patterns): return self._send("block_urls", {"patterns": patterns})
     def wait_for_network_idle(self): return self._send("wait_for_network_idle")
+    def get_performance_metrics(self): return self._send("get_performance_metrics")
+    
+    # ==================================================
+    # 15. IFRAME SWITCHING
+    # ==================================================
+    def switch_to_frame(self, selector): return self._send("switch_to_frame", {"selector": selector})
+    def switch_to_default_content(self): return self._send("switch_to_default_content")
+    def switch_to_parent_frame(self): return self._send("switch_to_parent_frame")
+    
+    # ==================================================
+    # 16. ALERTS & DIALOGS
+    # ==================================================
+    def accept_alert(self): return self._send("accept_alert")
+    def dismiss_alert(self): return self._send("dismiss_alert")
+    def get_alert_text(self): return self._send("get_alert_text")
+    
+    # ==================================================
+    # 17. ADVANCED MOUSE (DOM LEVEL)
+    # ==================================================
+    def double_click(self, selector): return self._send("double_click", {"selector": selector})
+    def right_click(self, selector): return self._send("right_click", {"selector": selector})
+    def hover(self, selector): return self._send("hover", {"selector": selector})
+    def drag_and_drop(self, drag_selector, drop_selector): return self._send("drag_and_drop", {"drag_selector": drag_selector, "drop_selector": drop_selector})
+    
+    # ==================================================
+    # 18. VIEWPORT SIZE
+    # ==================================================
+    def set_window_size(self, width, height): return self._send("set_window_size", {"width": width, "height": height})
+    def set_window_rect(self, x, y, width, height): return self._send("set_window_rect", {"x": x, "y": y, "width": width, "height": height})
+    
+    # ==================================================
+    # 19. SESSION STATE (Import/Export)
+    # ==================================================
+    def export_session(self): return self._send("get_storage_state")
+    def import_session(self, state_dict): return self._send("set_storage_state", {"state": state_dict})
+    
+    # ==================================================
+    # 20. GOD MODE (Raw CDP Access)
+    # ==================================================
+    def execute_cdp_cmd(self, cmd, params={}): return self._send("execute_cdp_cmd", {"cmd": cmd, "params": params})
